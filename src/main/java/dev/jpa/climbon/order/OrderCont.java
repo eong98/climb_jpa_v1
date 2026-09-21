@@ -137,6 +137,32 @@ public class OrderCont {
   }
 
   /**
+   * 토스페이먼츠 결제 승인.
+   * <pre>
+   * POST /order/toss/confirm
+   * { "paymentKey":"...", "orderId":"20260918-000001", "amount": 133000 }
+   * </pre>
+   *
+   * <p>토스 결제창(SDK)이 successUrl로 돌려준 값을 프론트가 그대로 전달합니다.
+   * 서버는 이 값을 그대로 믿지 않고 토스 서버에 다시 승인을 요청해 확인한 뒤에만
+   * 결제상태를 완료로 바꿉니다 (자세한 이유는 {@link OrderService#confirmTossPayment} 참고).</p>
+   */
+  @PostMapping("/toss/confirm")
+  public ResponseEntity<?> confirmTossPayment(@RequestBody OrderTossConfirmDTO dto) {
+    try {
+      OrderDTO order = orderService.confirmTossPayment(dto);
+
+      Map<String, Object> body = new HashMap<>();
+      body.put("order", order);
+      body.put("message", "결제가 완료되었습니다.");
+      return ResponseEntity.ok(body);
+
+    } catch (Exception e) {
+      return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
+    }
+  }
+
+  /**
    * 주문 취소.
    * <pre>PUT /order/12/cancel</pre>
    *

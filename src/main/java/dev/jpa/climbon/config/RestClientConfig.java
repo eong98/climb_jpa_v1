@@ -1,6 +1,8 @@
 package dev.jpa.climbon.config;
 
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.Base64;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -71,6 +73,54 @@ public class RestClientConfig {
         .requestFactory(factory)
         .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
         .defaultHeader(HttpHeaders.ACCEPT, MediaType.APPLICATION_JSON_VALUE)
+        .build();
+  }
+
+  /**
+   * 토스페이먼츠 결제 승인(confirm) API 전용 RestClient 빈.
+   *
+   * <p>위 주석에서 미리 언급했던 "나중에 결제 PG가 추가되면"이 실제로 일어난 지점입니다.
+   * {@code aiRestClient}와 마찬가지로 빈 이름을 명시해 어떤 RestClient가 주입될지
+   * 타입만으로 헷갈리지 않게 합니다.</p>
+   *
+   * <p><b>[면접 포인트] 인증 헤더를 왜 요청마다 넣지 않고 빈에 미리 박아 두나?</b><br>
+   * 토스 결제 승인 API는 <b>시크릿 키를 Basic 인증의 아이디 자리에 넣고 비밀번호는 비워</b>
+   * {@code Authorization: Basic base64(시크릿키:)} 헤더로 인증합니다.
+   * 이 규칙을 호출부(OrderService)마다 반복하면 언젠가 한 곳에서 콜론을 빠뜨리거나
+   * 인코딩을 잘못해 결제가 전부 401로 실패하는 사고가 납니다.
+   * RestClient를 만드는 이 한 곳에만 규칙을 넣어 두면 호출부는 <b>무엇을 결제할지</b>만 신경 씁니다.</p>
+   *
+   * <p><b>[실무 팁] 시크릿 키는 절대 프론트로 내려가면 안 됩니다.</b><br>
+   * 프론트가 쓰는 건 공개해도 되는 <b>클라이언트 키</b>뿐이고,
+   * 결제를 최종 확정하는 시크릿 키는 이렇게 <b>서버 안에서만</b> 씁니다.
+   * 이 프로젝트는 사업자등록이 없는 개인 포트폴리오라 토스가 누구나 쓸 수 있게 공개한
+   * <b>테스트 상점 키</b>를 기본값으로 둡니다. 실제 서비스로 전환할 때는 반드시
+   * 발급받은 실키를 환경변수({@code TOSS_SECRET_KEY})로 주입해야 합니다.</p>
+   *
+   * @param baseUrl   토스페이먼츠 API 주소 (고정값, 테스트/운영 키 모두 이 주소 하나를 씁니다)
+   * @param secretKey {@code climbon.toss.secret-key} — Basic 인증에 쓰는 시크릿 키
+   */
+  @Bean
+  public RestClient tossRestClient(
+      @Value("${climbon.toss.base-url:https://api.tosspayments.com}") String baseUrl,
+      @Value("${climbon.toss.secret-key}") String secretKey,
+      @Value("${climbon.toss.timeout:10000}") long timeout) {
+
+    SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+    factory.setConnectTimeout(Duration.ofMillis(timeout));
+    factory.setReadTimeout(Duration.ofMillis(timeout));
+
+    // "시크릿키:" (뒤에 콜론만 있고 비밀번호는 없음) 형태를 Base64로 인코딩한 것이
+    // 토스가 요구하는 Basic 인증 토큰입니다.
+    String basicToken = Base64.getEncoder()
+        .encodeToString((secretKey + ":").getBytes(StandardCharsets.UTF_8));
+
+    return RestClient.builder()
+        .baseUrl(baseUrl)
+        .requestFactory(factory)
+        .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+        .defaultHeader(HttpHeaders.ACCEPT, MediaType.APPLICATION_JSON_VALUE)
+        .defaultHeader(HttpHeaders.AUTHORIZATION, "Basic " + basicToken)
         .build();
   }
 }

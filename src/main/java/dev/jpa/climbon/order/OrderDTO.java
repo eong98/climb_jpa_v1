@@ -58,6 +58,13 @@ public class OrderDTO {
   /** 결제상태 (0: 대기, 1: 완료, 2: 취소, 3: 환불) */
   private Integer payStatus;
 
+  /**
+   * PG(토스페이먼츠) 결제승인키 — 응답 전용입니다.
+   * 요청 바디로 보내도 {@link #toEntity()}가 옮기지 않으므로 클라이언트가 조작할 수 없습니다
+   * (결제완료 조작 방지 — 이 값은 오직 {@code OrderService.confirmTossPayment}만 채웁니다).
+   */
+  private String payKey;
+
   /** 배송상태 (0: 준비, 1: 출고, 2: 배송중, 3: 완료) */
   private Integer deliveryStatus;
 
@@ -182,6 +189,7 @@ public class OrderDTO {
         .deliveryFee(fee)
         .payMethod(entity.getPayMethod())
         .payStatus(entity.getPayStatus())
+        .payKey(entity.getPayKey())
         .deliveryStatus(entity.getDeliveryStatus())
         .receiver(entity.getReceiver())
         .phone(entity.getPhone())

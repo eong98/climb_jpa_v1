@@ -10,6 +10,11 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientResponseException;
+
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import dev.jpa.climbon.cart.Cart;
 import dev.jpa.climbon.cart.CartRepository;
@@ -48,6 +53,11 @@ public class OrderService {
   private final CartRepository cartRepository;
   private final CartService cartService;
   private final ProductRepository productRepository;
+
+  /** 토스페이먼츠 결제승인 전용 RestClient — 시크릿 키 인증 헤더가 미리 실려 있습니다. (RestClientConfig 참고) */
+  private final RestClient tossRestClient;
+  /** 토스 API의 오류 응답(JSON)에서 사람이 읽을 메시지만 뽑아내는 데 씁니다. */
+  private final ObjectMapper objectMapper;
 
   /** 주문명에 노출할 대표 상품명 최대 길이 — ORDER_NAME이 VARCHAR2(200)이라 여유 있게 자릅니다. */
   private static final int ORDER_NAME_CUT = 100;
@@ -247,6 +257,110 @@ public class OrderService {
     }
 
     order.cancel(Tool.getDate());
+  }
+
+  /* ======================================================================
+   * 토스페이먼츠 결제 승인
+   * ====================================================================== */
+
+  /**
+   * 토스페이먼츠 결제 승인. — {@code POST /order/toss/confirm}
+   *
+   * <p><b>[면접 포인트] successUrl로 받은 값을 왜 그대로 믿으면 안 되나?</b><br>
+   * 결제창(SDK)이 끝나면 브라우저가 successUrl로 <b>스스로</b> 이동합니다.
+   * 이건 서버 간 통신이 아니라 사용자 브라우저의 리다이렉트라, 사용자가 개발자도구로
+   * {@code paymentKey}, {@code orderId}, {@code amount} 쿼리값을 마음대로 바꿔
+   * "결제 성공"을 위장해 이 API를 호출할 수 있습니다.
+   * 그래서 이 세 값은 <b>단서일 뿐</b>이고, 진짜 승인은 반드시 서버가
+   * 시크릿 키로 토스 서버에 다시 확인해야 합니다(아래 ③).</p>
+   *
+   * <p>처리 순서
+   * <ol>
+   *   <li>주문 조회 + 본인 확인 (남의 주문번호로 결제를 확정시키는 것을 방지)</li>
+   *   <li>금액 대조 — 프론트가 보낸 {@code amount}가 <b>주문 생성 시 서버가 계산해 저장해 둔</b>
+   *       {@code TOTAL_PRICE}와 정확히 같은지 확인 (다르면 결제 금액 조작 시도로 간주해 거부)</li>
+   *   <li>토스 결제 승인 API({@code POST /v1/payments/confirm}) 호출 — 여기서 실패하면
+   *       (카드 한도 초과, 이미 취소된 결제 등) 토스가 4xx로 거절합니다</li>
+   *   <li>성공하면 PAY_STATUS를 완료(1)로 바꾸고 승인키를 저장</li>
+   * </ol>
+   * </p>
+   *
+   * <p><b>[실무 팁] 멱등성</b><br>
+   * 새로고침이나 브라우저 뒤로가기로 이 API가 같은 결제 건에 대해 두 번 호출될 수 있습니다.
+   * 이미 완료(PAY_DONE) 상태인 주문이면 토스를 다시 호출하지 않고 <b>그대로</b> 성공 응답을 돌려줍니다
+   * (토스 승인 API는 이미 승인된 paymentKey로 다시 호출하면 오류를 내려줍니다).</p>
+   */
+  @Transactional
+  public OrderDTO confirmTossPayment(OrderTossConfirmDTO req) {
+    Long mno = requireLogin();
+
+    if (Tool.isEmpty(req.getPaymentKey()) || Tool.isEmpty(req.getOrderId()) || req.getAmount() == null) {
+      throw new IllegalArgumentException("결제 승인에 필요한 값이 부족합니다.");
+    }
+
+    // ① 주문 조회 + 본인 확인 — 토스의 orderId는 곧 우리 ORDER_CODE입니다.
+    Order order = orderRepository.findByOrderCode(req.getOrderId())
+        .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 주문입니다. orderId=" + req.getOrderId()));
+
+    if (!order.isOwner(mno)) {
+      throw new IllegalStateException("본인의 주문만 결제할 수 있습니다.");
+    }
+
+    // 이미 승인된 주문이면 토스를 다시 부르지 않고 그대로 돌려줍니다 (멱등 처리).
+    if (order.getPayStatus() == Order.PAY_DONE) {
+      return toOrderDetail(order);
+    }
+    if (!order.isCancelable()) {
+      throw new IllegalStateException("이미 취소되었거나 환불된 주문은 결제를 진행할 수 없습니다.");
+    }
+
+    // ② 금액 대조 — 프론트가 보낸 금액이 아니라 항상 서버가 저장해 둔 금액을 기준으로 판단합니다.
+    if (order.getTotalPrice() == null || order.getTotalPrice() != req.getAmount().intValue()) {
+      throw new IllegalStateException("결제 금액이 주문 금액과 일치하지 않습니다.");
+    }
+
+    // ③ 토스 결제 승인 API 호출 — 이 호출이 성공해야 "진짜로 결제된 것"입니다.
+    Map<String, Object> body = new LinkedHashMap<>();
+    body.put("paymentKey", req.getPaymentKey());
+    body.put("orderId", req.getOrderId());
+    body.put("amount", req.getAmount());
+
+    try {
+      tossRestClient.post()
+          .uri("/v1/payments/confirm")
+          .body(body)
+          .retrieve()
+          .toBodilessEntity();
+    } catch (RestClientResponseException e) {
+      // 토스가 4xx/5xx로 거절한 경우 — 응답 본문에 사람이 읽을 메시지가 들어 있습니다.
+      throw new IllegalStateException("결제 승인이 거절되었습니다: " + extractTossMessage(e));
+    }
+
+    // ④ 승인 완료 반영
+    order.setPayStatus(Order.PAY_DONE);
+    order.setPayKey(req.getPaymentKey());
+    order.setUdate(Tool.getDate());
+
+    return toOrderDetail(order);
+  }
+
+  /** 토스 API의 JSON 오류 응답에서 {@code message} 필드만 뽑아냅니다. 파싱이 실패하면 원문을 그대로 돌려줍니다. */
+  private String extractTossMessage(RestClientResponseException e) {
+    String raw = e.getResponseBodyAsString();
+    try {
+      Map<String, Object> body = objectMapper.readValue(raw, new TypeReference<Map<String, Object>>() {});
+      Object message = body.get("message");
+      return message != null ? message.toString() : raw;
+    } catch (Exception parseError) {
+      return raw;
+    }
+  }
+
+  /** 주문 + 주문 상세(스냅샷)를 함께 담은 응답을 만듭니다. */
+  private OrderDTO toOrderDetail(Order order) {
+    OrderDTO dto = OrderDTO.fromEntity(order);
+    dto.setItems(orderItemRepository.findItemDTOs(order.getNo()));
+    return dto;
   }
 
   /* ======================================================================

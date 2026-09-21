@@ -89,6 +89,16 @@ public class Order {
   @Builder.Default
   private int payStatus = PAY_WAIT;
 
+  /**
+   * PG(토스페이먼츠) 결제승인키(paymentKey).
+   *
+   * <p>결제가 <b>실제로 승인된 뒤에만</b> 채워집니다(OrderService.confirmTossPayment).
+   * 주문 생성 시점에는 아직 결제가 이루어지지 않았으므로 항상 NULL이고,
+   * CARD/BANK/KAKAO처럼 PG 연동이 없는 결제수단은 승인 과정 자체가 없어 계속 NULL로 남습니다.
+   * 나중에 결제 취소/환불 API를 붙일 때 "토스의 어느 거래를 가리키는지" 특정하는 키로 씁니다.</p>
+   */
+  private String payKey;
+
   /** 배송상태 (0: 준비, 1: 출고, 2: 배송중, 3: 완료) */
   @Builder.Default
   private int deliveryStatus = DELIVERY_READY;
