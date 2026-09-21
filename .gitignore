@@ -1,0 +1,19 @@
+# Gradle
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+
+# IDE
+.idea/
+*.iml
+.settings/
+.classpath
+.project
+bin/
+
+# 로그 / 임시
+*.log
+/tmp/
+
+# 로컬 설정 (DB 비밀번호 등)
+src/main/resources/application-local.properties

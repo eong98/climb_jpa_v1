@@ -1,0 +1,68 @@
+plugins {
+  id 'java'
+  id 'war'
+  id 'org.springframework.boot' version '3.5.15'
+  id 'io.spring.dependency-management' version '1.1.7'
+}
+
+group = 'dev.jpa'
+version = '1.0'
+
+java {
+  toolchain {
+    languageVersion = JavaLanguageVersion.of(21)
+  }
+}
+
+repositories {
+  mavenCentral()
+}
+
+dependencies {
+  // --- Spring Boot 기본 ---
+  implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+  implementation 'org.springframework.boot:spring-boot-starter-web'
+  implementation 'org.springframework.boot:spring-boot-starter-validation'
+  implementation 'org.springframework.boot:spring-boot-starter-security'
+  implementation 'org.springframework.boot:spring-boot-starter-mail'
+
+  // --- Lombok ---
+  compileOnly 'org.projectlombok:lombok'
+  annotationProcessor 'org.projectlombok:lombok'
+  testCompileOnly 'org.projectlombok:lombok'
+  testAnnotationProcessor 'org.projectlombok:lombok'
+
+  // --- 개발 편의 ---
+  developmentOnly 'org.springframework.boot:spring-boot-devtools'
+  providedRuntime 'org.springframework.boot:spring-boot-starter-tomcat'
+
+  // --- DB (Oracle) ---
+  runtimeOnly 'com.oracle.database.jdbc:ojdbc11'
+  // MySQL로 바꿔서 쓸 경우 아래 주석 해제 후 application.properties도 함께 변경
+  // runtimeOnly 'com.mysql:mysql-connector-j'
+
+  // --- JWT (JJWT 0.11.5: 팀 프로젝트와 동일 버전) ---
+  // ※ 0.12.x부터 API가 바뀝니다(Jwts.parserBuilder() -> Jwts.parser(), signWith 인자 순서 변경).
+  //   버전 올릴 때 JwtTokenProvider를 같이 수정해야 합니다.
+  implementation 'io.jsonwebtoken:jjwt-api:0.11.5'
+  runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.11.5'
+  runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.11.5'
+
+  // --- 파일 업로드 / 유틸 ---
+  implementation 'commons-io:commons-io:2.16.1'
+  implementation 'org.apache.commons:commons-lang3'
+
+  // --- FastAPI(AI 서버) 호출용 HTTP 클라이언트 ---
+  // Spring Boot 3.2+ 의 RestClient를 사용하므로 별도 의존성 불필요
+  // (WebClient를 쓰려면 아래 주석 해제)
+  // implementation 'org.springframework.boot:spring-boot-starter-webflux'
+
+  // --- 테스트 ---
+  testImplementation 'org.springframework.boot:spring-boot-starter-test'
+  testImplementation 'org.springframework.security:spring-security-test'
+  testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+tasks.named('test') {
+  useJUnitPlatform()
+}

@@ -1,0 +1,190 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  ============================================================================
+  CLIMB:ON 백엔드 - Maven 빌드 설정
+
+  build.gradle 과 동일한 의존성을 Maven 형식으로 옮긴 파일입니다.
+  STS에서 Gradle 임포트가 안 될 때 이 파일로 임포트하세요.
+
+    File → Import → Maven → Existing Maven Projects
+    → Root Directory: climb_jpa_v1 선택 → Finish
+
+  [왜 Maven도 같이 두나]
+  Gradle 임포트는 Buildship 플러그인이 Gradle 배포판을 따로 받아와야 해서
+  사내망/방화벽 환경에서 자주 실패합니다.
+  Maven(m2e)은 STS에 내장되어 있어 추가로 받을 게 없습니다.
+  둘 중 되는 쪽으로 쓰시면 되고, 의존성 구성은 완전히 동일합니다.
+  ============================================================================
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <!--
+    Spring Boot 부모 POM.
+    버전 관리(BOM)를 여기서 해주기 때문에 아래 의존성 대부분에 <version>을 쓰지 않습니다.
+    build.gradle의 io.spring.dependency-management 플러그인과 같은 역할입니다.
+  -->
+  <parent>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-parent</artifactId>
+    <version>3.5.15</version>
+    <relativePath/>
+  </parent>
+
+  <groupId>dev.jpa</groupId>
+  <artifactId>climbon</artifactId>
+  <version>1.0</version>
+  <name>climbon</name>
+  <description>CLIMB:ON - 클라이밍 암장 검색 &amp; 커뮤니티 플랫폼</description>
+
+  <properties>
+    <!--
+      자바 버전. 설치된 JDK가 17이면 여기만 17로 바꾸면 됩니다.
+      (Spring Boot 3.5는 17 이상이면 동작합니다)
+    -->
+    <java.version>21</java.version>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+  </properties>
+
+  <dependencies>
+    <!-- ================= Spring Boot 기본 ================= -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-data-jpa</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-web</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-validation</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-security</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-mail</artifactId>
+    </dependency>
+
+    <!-- ================= Lombok ================= -->
+    <!--
+      optional=true: 이 프로젝트를 다른 프로젝트가 가져다 쓸 때 Lombok까지 딸려가지 않게 합니다.
+      ※ STS에 Lombok이 설치되어 있어야 에디터에서 getter/setter를 인식합니다.
+        (팀 프로젝트가 잘 돌고 있으면 이미 설치된 상태입니다)
+    -->
+    <dependency>
+      <groupId>org.projectlombok</groupId>
+      <artifactId>lombok</artifactId>
+      <optional>true</optional>
+    </dependency>
+
+    <!-- ================= 개발 편의 ================= -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-devtools</artifactId>
+      <scope>runtime</scope>
+      <optional>true</optional>
+    </dependency>
+
+    <!-- ================= DB (Oracle) ================= -->
+    <dependency>
+      <groupId>com.oracle.database.jdbc</groupId>
+      <artifactId>ojdbc11</artifactId>
+      <scope>runtime</scope>
+    </dependency>
+    <!-- MySQL로 바꿀 경우 위 ojdbc11 대신 아래 주석 해제
+    <dependency>
+      <groupId>com.mysql</groupId>
+      <artifactId>mysql-connector-j</artifactId>
+      <scope>runtime</scope>
+    </dependency>
+    -->
+
+    <!-- ================= JWT (JJWT 0.11.5) ================= -->
+    <!--
+      ※ 0.12.x부터 API가 바뀝니다(Jwts.parserBuilder() → Jwts.parser()).
+        버전을 올리면 JwtTokenProvider도 함께 수정해야 합니다.
+    -->
+    <dependency>
+      <groupId>io.jsonwebtoken</groupId>
+      <artifactId>jjwt-api</artifactId>
+      <version>0.11.5</version>
+    </dependency>
+    <dependency>
+      <groupId>io.jsonwebtoken</groupId>
+      <artifactId>jjwt-impl</artifactId>
+      <version>0.11.5</version>
+      <scope>runtime</scope>
+    </dependency>
+    <dependency>
+      <groupId>io.jsonwebtoken</groupId>
+      <artifactId>jjwt-jackson</artifactId>
+      <version>0.11.5</version>
+      <scope>runtime</scope>
+    </dependency>
+
+    <!-- ================= 파일 / 유틸 ================= -->
+    <dependency>
+      <groupId>commons-io</groupId>
+      <artifactId>commons-io</artifactId>
+      <version>2.16.1</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.commons</groupId>
+      <artifactId>commons-lang3</artifactId>
+    </dependency>
+
+    <!-- ================= 테스트 ================= -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.security</groupId>
+      <artifactId>spring-security-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-maven-plugin</artifactId>
+        <configuration>
+          <!-- 실행 JAR을 만들 때 Lombok은 빼도 됩니다 (컴파일 시점에만 쓰이므로) -->
+          <excludes>
+            <exclude>
+              <groupId>org.projectlombok</groupId>
+              <artifactId>lombok</artifactId>
+            </exclude>
+          </excludes>
+        </configuration>
+      </plugin>
+
+      <!--
+        Lombok 애노테이션 처리기 등록.
+        JDK 21 + Lombok 조합에서 "cannot find symbol: method getXxx()" 에러가 날 때
+        이 설정이 있으면 해결됩니다.
+      -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <configuration>
+          <annotationProcessorPaths>
+            <path>
+              <groupId>org.projectlombok</groupId>
+              <artifactId>lombok</artifactId>
+            </path>
+          </annotationProcessorPaths>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
+</project>
