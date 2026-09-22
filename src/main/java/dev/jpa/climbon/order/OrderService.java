@@ -5,6 +5,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.springframework.beans.factory.annotation.Qualifier;   // [추가] 같은 타입 빈 구분용
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -55,6 +56,7 @@ public class OrderService {
   private final ProductRepository productRepository;
 
   /** 토스페이먼츠 결제승인 전용 RestClient — 시크릿 키 인증 헤더가 미리 실려 있습니다. (RestClientConfig 참고) */
+  @Qualifier("tossRestClient")   // [추가] RestClient 빈이 2개라 이름으로 명시 (lombok.config가 생성자로 복사)
   private final RestClient tossRestClient;
   /** 토스 API의 오류 응답(JSON)에서 사람이 읽을 메시지만 뽑아내는 데 씁니다. */
   private final ObjectMapper objectMapper;
