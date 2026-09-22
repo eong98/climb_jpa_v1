@@ -66,3 +66,13 @@ dependencies {
 tasks.named('test') {
   useJUnitPlatform()
 }
+
+// ▼▼▼ [추가] WAR 설정 ▼▼▼
+bootWar {
+  archiveFileName = 'climbon.war'   // Tomcat 주소가 /climbon 이 됨
+}
+
+war {
+  enabled = false                   // plain war는 생성 안 함
+}
+// ▲▲▲ [추가] 끝 ▲▲▲

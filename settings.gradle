@@ -1,4 +1,4 @@
 // Gradle 프로젝트 이름 지정.
 // 이 파일이 없으면 폴더명이 프로젝트명으로 자동 지정되는데,
 // 폴더명을 바꾸면 빌드 산출물 이름까지 바뀌므로 명시해 두는 편이 안전합니다.
-rootProject.name = 'climbon'
+rootProject.name = 'climb_jpa_v1'
