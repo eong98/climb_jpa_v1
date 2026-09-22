@@ -13,6 +13,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
+import org.springframework.beans.factory.annotation.Qualifier;  
 
 import dev.jpa.climbon.gym.Gym;
 import dev.jpa.climbon.gym.GymDTO;
@@ -51,6 +52,7 @@ public class AiService {
   private static final Logger log = LoggerFactory.getLogger(AiService.class);
 
   /** FastAPI 전용 RestClient — 빈 이름이 {@code aiRestClient}라 필드명으로 정확히 주입됩니다. */
+  @Qualifier("aiRestClient")   
   private final RestClient aiRestClient;
 
   private final AiChatLogRepository aiChatLogRepository;
